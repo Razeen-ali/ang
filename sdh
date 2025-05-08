@@ -1,0 +1,35 @@
+  getNBKsFromEmails(emails: string[]): Observable<NBKrequirements[]> {
+    try {
+      // Filter for valid @bofa.com emails
+      const validEmails = emails.filter(email => email.toLowerCase().endsWith('@bofa.com'));
+      
+      if (validEmails.length === 0) {
+        console.log('No valid @bofa.com emails found');
+        return of([]);
+      }
+
+      const payload: EmailRequest = { emailIds: validEmails };
+
+      return this.http.post<string[]>(this.EMAIL_TO_NBK_API, payload).pipe(
+        tap(response => {
+          console.log('Email to NBK response:', response);
+        }),
+        mergeMap(nbks => {
+          if (!nbks || nbks.length === 0) {
+            console.log('No NBKs found for the provided emails');
+            return of([]);
+          }
+          // Get requirements for each NBK returned from email lookup
+          const nbkRequests = nbks.map(nbk => this.getNBKrequirements(nbk));
+          return forkJoin(nbkRequests);
+        }),
+        catchError((error: HttpErrorResponse) => {
+          console.error('Error getting NBKs from emails:', error);
+          return of([]);
+        })
+      );
+    } catch (error) {
+      console.error('Error in getNBKsFromEmails:', error);
+      return of([]);
+    }
+  }
